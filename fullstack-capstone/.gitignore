@@ -2,6 +2,9 @@
 __pycache__/
 *.py[cod]
 .pytest_cache/
+.pytest-tmp/
+manual-test/
+test-tmp/
 pytest-cache-files-*/
 .ruff_cache/
 .coverage
@@ -13,4 +16,5 @@ dist/
 build/
 *.egg-info/
 node_modules/
+data/
 
