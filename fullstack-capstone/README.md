@@ -15,6 +15,20 @@ are in backend/http-api-examples.http; the interface table and HTTP notes are in
 docs/http-api.md. The API uses 201 for creation, 204 for deletion, 404 for
 missing resources, 409 for duplicate titles, and 422 for invalid input.
 
+## Week 5: Browser page
+
+Start the API first, then serve the native browser page:
+
+~~~powershell
+Set-Location frontend
+python -m http.server 5500
+~~~
+
+Open http://127.0.0.1:5500. The page in frontend/ uses native HTML, CSS and
+JavaScript to call /tasks, add tasks, filter and search them, toggle completion,
+delete tasks, and show loading, empty and error states. See
+docs/frontend-week-05.md for the interaction table and manual acceptance checklist.
+
 Python 全栈提升计划的贯穿项目，默认主题为个人知识库/任务协作应用。
 
 ## 第 1 周：环境检查
