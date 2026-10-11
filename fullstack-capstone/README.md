@@ -1,5 +1,20 @@
 # Fullstack Capstone
 
+## Week 4: HTTP API
+
+The in-memory FastAPI task API supports list, detail, create, update, and delete.
+
+~~~powershell
+Set-Location backend
+$env:UV_CACHE_DIR = "G:\_user\.uv-cache"
+uv run --no-sync uvicorn app.http_api:app --reload
+~~~
+
+Open http://127.0.0.1:8000/docs for the generated OpenAPI page. Request examples
+are in backend/http-api-examples.http; the interface table and HTTP notes are in
+docs/http-api.md. The API uses 201 for creation, 204 for deletion, 404 for
+missing resources, 409 for duplicate titles, and 422 for invalid input.
+
 Python 全栈提升计划的贯穿项目，默认主题为个人知识库/任务协作应用。
 
 ## 第 1 周：环境检查

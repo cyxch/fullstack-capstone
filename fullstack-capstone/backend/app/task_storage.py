@@ -116,3 +116,20 @@ class TaskStorage:
                     os.unlink(temporary_path)
                 except OSError:
                     pass
+
+
+class InMemoryTaskStorage:
+    """Small storage adapter used by the HTTP learning API and its tests."""
+
+    def __init__(self, tasks: Sequence[Task] | None = None) -> None:
+        self._tasks = list(tasks or [])
+
+    def load(self) -> list[Task]:
+        """Return a copy so callers cannot mutate storage accidentally."""
+
+        return list(self._tasks)
+
+    def save(self, tasks: Sequence[Task]) -> None:
+        """Replace the in-memory snapshot with a copied sequence."""
+
+        self._tasks = list(tasks)

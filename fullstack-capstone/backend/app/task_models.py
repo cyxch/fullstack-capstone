@@ -13,6 +13,7 @@ from pydantic import (
     StrictStr,
     ValidationError,
     field_validator,
+    model_validator,
 )
 
 
@@ -57,6 +58,35 @@ class TaskCreate(BaseModel):
             return cls(title=normalized)
         except ValidationError as exc:
             raise TaskValidationError(_validation_message(exc)) from exc
+
+
+class TaskUpdate(BaseModel):
+    """Validated fields for replacing a task through the HTTP API."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    title: StrictStr | None = Field(default=None, min_length=1)
+    completed: StrictBool | None = None
+
+    @field_validator("title")
+    @classmethod
+    def normalize_title(cls, value: str | None) -> str | None:
+        """Normalize a supplied title while preserving omitted fields."""
+
+        if value is None:
+            return None
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("task title cannot be empty")
+        return normalized
+
+    @model_validator(mode="after")
+    def require_one_field(self) -> TaskUpdate:
+        """Reject an empty update body so PUT has an explicit effect."""
+
+        if self.title is None and self.completed is None:
+            raise ValueError("at least one task field is required")
+        return self
 
 
 class TaskQuery(BaseModel):

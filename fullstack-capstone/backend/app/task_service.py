@@ -2,11 +2,22 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from collections.abc import Sequence
+from typing import Literal, Protocol
 
 from .logging_config import context_from_mapping, get_logger
 from .task_models import Task, TaskCreate, TaskQuery, TaskValidationError
-from .task_storage import TaskStorage
+
+
+class TaskStore(Protocol):
+    """Persistence operations required by the task service."""
+
+    def load(self) -> list[Task]:
+        """Load the current task snapshot."""
+
+    def save(self, tasks: Sequence[Task]) -> None:
+        """Persist a task snapshot."""
+
 
 TaskStatus = Literal["all", "pending", "completed"]
 logger = get_logger("task_service")
@@ -38,7 +49,7 @@ class TaskNotFoundError(TaskError):
 class TaskService:
     """Apply task rules while delegating persistence to ``TaskStorage``."""
 
-    def __init__(self, storage: TaskStorage) -> None:
+    def __init__(self, storage: TaskStore) -> None:
         self.storage = storage
 
     def add_task(self, title: str) -> Task:
@@ -115,6 +126,57 @@ class TaskService:
                     extra=context_from_mapping({"event": "task_deleted", "task_id": removed.id}),
                 )
                 return removed
+        raise TaskNotFoundError(f"task not found: {task_id}")
+
+    def get_task(self, task_id: int) -> Task:
+        """Return one task or raise the stable not-found domain error."""
+
+        self._validate_task_id(task_id)
+        for task in self.storage.load():
+            if task.id == task_id:
+                return task
+        raise TaskNotFoundError(f"task not found: {task_id}")
+
+    def update_task(
+        self,
+        task_id: int,
+        *,
+        title: str | None = None,
+        completed: bool | None = None,
+    ) -> Task:
+        """Update supplied fields while enforcing the same task rules as create."""
+
+        self._validate_task_id(task_id)
+        if title is None and completed is None:
+            raise TaskValidationError("at least one task field is required")
+        validated_title = (
+            TaskCreate.model_validate_title(title).title if title is not None else None
+        )
+        if completed is not None and not isinstance(completed, bool):
+            raise TaskValidationError("completed must be a boolean")
+
+        tasks = self.storage.load()
+        for index, task in enumerate(tasks):
+            if task.id != task_id:
+                continue
+            next_title = validated_title if validated_title is not None else task.title
+            if any(
+                candidate.id != task_id and candidate.title.casefold() == next_title.casefold()
+                for candidate in tasks
+            ):
+                raise DuplicateTaskError(f"task already exists: {next_title}")
+            updated = Task(
+                id=task.id,
+                title=next_title,
+                completed=completed if completed is not None else task.completed,
+            )
+            tasks[index] = updated
+            self.storage.save(tasks)
+            logger.info(
+                "task updated",
+                extra=context_from_mapping({"event": "task_updated", "task_id": updated.id}),
+            )
+            return updated
         raise TaskNotFoundError(f"task not found: {task_id}")
 
     @staticmethod
