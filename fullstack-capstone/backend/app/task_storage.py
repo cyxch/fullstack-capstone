@@ -5,13 +5,24 @@ from __future__ import annotations
 import json
 import os
 import tempfile
+from collections.abc import Sequence
 from pathlib import Path
 
+from .logging_config import context_from_mapping, get_logger
 from .task_models import Task, TaskValidationError
+
+logger = get_logger("task_storage")
 
 
 class TaskDataError(ValueError):
     """Raised when the task file cannot be read as valid task data."""
+
+    code = "task_data_error"
+
+    def as_dict(self) -> dict[str, str]:
+        """Return the stable error contract used by CLI adapters."""
+
+        return {"code": self.code, "message": str(self)}
 
 
 class TaskStorage:
@@ -45,7 +56,7 @@ class TaskStorage:
         seen_titles: set[str] = set()
         for index, item in enumerate(payload):
             try:
-                task = Task.from_dict(item)
+                task = Task.model_validate_record(item)
             except TaskValidationError as exc:
                 raise TaskDataError(f"invalid task at index {index}: {exc}") from exc
 
@@ -57,9 +68,15 @@ class TaskStorage:
             seen_ids.add(task.id)
             seen_titles.add(title_key)
             tasks.append(task)
+        logger.debug(
+            "tasks loaded",
+            extra=context_from_mapping(
+                {"event": "tasks_loaded", "count": len(tasks), "path": str(self.path)}
+            ),
+        )
         return tasks
 
-    def save(self, tasks: list[Task]) -> None:
+    def save(self, tasks: Sequence[Task]) -> None:
         """Persist tasks atomically so an interrupted write cannot corrupt JSON."""
 
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -85,6 +102,12 @@ class TaskStorage:
                 os.fsync(temporary_file.fileno())
             os.replace(temporary_path, self.path)
             temporary_path = None
+            logger.debug(
+                "tasks saved",
+                extra=context_from_mapping(
+                    {"event": "tasks_saved", "count": len(tasks), "path": str(self.path)}
+                ),
+            )
         except OSError as exc:
             raise TaskDataError(f"cannot write task file {self.path}: {exc}") from exc
         finally:

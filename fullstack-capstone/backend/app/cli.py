@@ -7,6 +7,9 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
+from .config import ConfigError, Settings
+from .logging_config import configure_logging, get_logger
+from .task_models import Task
 from .task_service import (
     DuplicateTaskError,
     TaskError,
@@ -15,7 +18,8 @@ from .task_service import (
 )
 from .task_storage import TaskDataError, TaskStorage
 
-DEFAULT_DATA_FILE = Path("data/tasks.json")
+DEFAULT_DATA_FILE = Settings().data_file
+logger = get_logger("cli")
 
 
 def positive_int(value: str) -> int:
@@ -40,19 +44,23 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help=f"JSON storage path (default: {DEFAULT_DATA_FILE})",
     )
+    parser.add_argument("--log-level", default=None, help="logging level (default: INFO)")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     add_parser = subparsers.add_parser("add", help="create a task")
     add_parser.add_argument("title", help="task title")
     add_parser.add_argument("--data-file", type=Path, default=argparse.SUPPRESS)
+    add_parser.add_argument("--log-level", default=argparse.SUPPRESS)
 
     complete_parser = subparsers.add_parser("complete", help="mark a task complete")
     complete_parser.add_argument("task_id", type=positive_int)
     complete_parser.add_argument("--data-file", type=Path, default=argparse.SUPPRESS)
+    complete_parser.add_argument("--log-level", default=argparse.SUPPRESS)
 
     delete_parser = subparsers.add_parser("delete", help="delete a task")
     delete_parser.add_argument("task_id", type=positive_int)
     delete_parser.add_argument("--data-file", type=Path, default=argparse.SUPPRESS)
+    delete_parser.add_argument("--log-level", default=argparse.SUPPRESS)
 
     query_parser = subparsers.add_parser(
         "query",
@@ -66,10 +74,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     query_parser.add_argument("--keyword")
     query_parser.add_argument("--data-file", type=Path, default=argparse.SUPPRESS)
+    query_parser.add_argument("--log-level", default=argparse.SUPPRESS)
     return parser
 
 
-def _print_tasks(tasks: list) -> None:
+def _print_tasks(tasks: Sequence[Task]) -> None:
     if not tasks:
         print("No tasks found.")
         return
@@ -83,10 +92,13 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     parser = build_parser()
     args = parser.parse_args(argv)
-    data_file = args.data_file or DEFAULT_DATA_FILE
-    service = TaskService(TaskStorage(data_file))
-
     try:
+        settings = Settings.from_env().with_overrides(
+            data_file=args.data_file,
+            log_level=args.log_level,
+        )
+        configure_logging(settings.log_level)
+        service = TaskService(TaskStorage(settings.data_file))
         if args.command == "add":
             task = service.add_task(args.title)
             print(f"Added task {task.id}: {task.title}")
@@ -98,8 +110,20 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(f"Deleted task {task.id}: {task.title}")
         else:
             _print_tasks(service.list_tasks(status=args.status, keyword=args.keyword))
-    except (DuplicateTaskError, TaskNotFoundError, TaskDataError, TaskError, ValueError) as exc:
-        print(f"Error: {exc}", file=sys.stderr)
+    except (
+        ConfigError,
+        DuplicateTaskError,
+        TaskNotFoundError,
+        TaskDataError,
+        TaskError,
+        ValueError,
+    ) as exc:
+        error_code = getattr(exc, "code", "invalid_input")
+        logger.error(
+            "command failed",
+            extra={"event": "command_failed", "error_type": type(exc).__name__},
+        )
+        print(f"Error [{error_code}]: {exc}", file=sys.stderr)
         return 1
     return 0
 
