@@ -29,6 +29,21 @@ JavaScript to call /tasks, add tasks, filter and search them, toggle completion,
 delete tasks, and show loading, empty and error states. See
 docs/frontend-week-05.md for the interaction table and manual acceptance checklist.
 
+## Week 6: React + TypeScript
+
+The frontend is now a Vite React + TypeScript app. Start the API, then run:
+
+~~~powershell
+Set-Location frontend
+npm install
+npm run dev
+~~~
+
+The app is split into typed `TaskForm`, `TaskList`, `TaskItem`, and `EmptyState`
+components. It keeps the Week 5 interactions while adding typed API requests,
+component state, and a production build. See docs/frontend-week-06.md and
+notes/weekly-06.md for the component map and acceptance paths.
+
 Python 全栈提升计划的贯穿项目，默认主题为个人知识库/任务协作应用。
 
 ## 第 1 周：环境检查
