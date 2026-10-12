@@ -44,6 +44,22 @@ components. It keeps the Week 5 interactions while adding typed API requests,
 component state, and a production build. See docs/frontend-week-06.md and
 notes/weekly-06.md for the component map and acceptance paths.
 
+## Week 7: FastAPI project skeleton
+
+The backend now exposes a health check at `/health` and a versioned capstone
+item API at `/api/v1/items`. Start it with:
+
+~~~powershell
+Set-Location backend
+$env:UV_CACHE_DIR = "G:\_user\.uv-cache"
+uv run --no-sync uvicorn app.http_api:app --reload
+~~~
+
+Open http://127.0.0.1:8000/docs to inspect the generated OpenAPI contract. The
+item API has typed create/update/response schemas, an in-memory service and
+storage boundary, CORS configuration, and the same JSON error envelope used by
+the Week 4 task API. See docs/backend-week-07.md and notes/weekly-07.md.
+
 Python 全栈提升计划的贯穿项目，默认主题为个人知识库/任务协作应用。
 
 ## 第 1 周：环境检查
